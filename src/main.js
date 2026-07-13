@@ -42,6 +42,7 @@ const MUSIC = {
   gameplayLoop: { path: 'assets/audio/pubrock_gameplay_loop.wav', volume: 0.25, loop: true },
   gameOverSting: { path: 'assets/audio/pubrock_game_over_sting.wav', volume: 0.55, loop: false },
 };
+let currentMusicKey = null;
 const STREET_SEGMENT_KEYS = [
   'streetSegment1',
   'streetSegment2',
@@ -93,11 +94,23 @@ function playImmediateSound(scene, key) {
 }
 
 function stopMusic(scene, key) {
-  const music = scene.sound.get(key);
+  const musicInstances = scene.sound.getAll(key);
 
-  if (music?.isPlaying) {
-    music.stop();
+  musicInstances.forEach((music) => {
+    if (music.isPlaying) {
+      music.stop();
+    }
+  });
+
+  if (currentMusicKey === key) {
+    currentMusicKey = null;
   }
+}
+
+function stopAllMusic(scene) {
+  Object.keys(MUSIC).forEach((musicKey) => {
+    stopMusic(scene, musicKey);
+  });
 }
 
 function playMusic(scene, key) {
@@ -116,6 +129,7 @@ function playMusic(scene, key) {
   const existingMusic = scene.sound.get(key);
 
   if (existingMusic?.isPlaying) {
+    currentMusicKey = key;
     return;
   }
 
@@ -123,6 +137,7 @@ function playMusic(scene, key) {
     volume: music.volume,
     loop: music.loop,
   });
+  currentMusicKey = key;
 }
 
 class MenuScene extends Phaser.Scene {
@@ -144,13 +159,15 @@ class MenuScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor('#ffffff');
-    playMusic(this, 'titleTheme');
     if (this.sound.locked) {
+      currentMusicKey = 'titleTheme';
       this.sound.once(Phaser.Sound.Events.UNLOCKED, () => {
-        if (this.scene.isActive()) {
+        if (this.scene.isActive() && currentMusicKey === 'titleTheme') {
           playMusic(this, 'titleTheme');
         }
       });
+    } else {
+      playMusic(this, 'titleTheme');
     }
     this.createMenu();
     this.scale.on('resize', this.layoutMenu, this);
@@ -189,7 +206,7 @@ class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.startButton = this.createButton('Start', () => {
-      stopMusic(this, 'titleTheme');
+      stopAllMusic(this);
       this.scene.start('GameScene');
     });
 
